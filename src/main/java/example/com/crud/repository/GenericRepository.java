@@ -4,7 +4,7 @@ import java.sql.SQLException;
 import java.util.List;
 
 public interface GenericRepository<T,ID> {
-    T getById(ID id) throws SQLException;
+    T getById(ID id);
 
     boolean delete(ID id);
 

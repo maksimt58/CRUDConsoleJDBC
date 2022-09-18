@@ -4,45 +4,52 @@ import example.com.crud.model.Post;
 import example.com.crud.model.PostStatus;
 import example.com.crud.model.Writer;
 import example.com.crud.repository.WriterRepository;
-import example.com.crud.utils.DBConnection;
+import example.com.crud.utils.ConnectionUtils;
+
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class DBWriterRepositoryImpl implements WriterRepository {
-    private DBConnection dbConnection = null;
-    private Connection connection = null;
-
-
-    public DBWriterRepositoryImpl() {
-        try {
-            this.dbConnection = DBConnection.getInstance();
-            this.connection = dbConnection.getConnection();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
+    private final static String SQL_QUERY_UPDATE = "UPDATE writers SET first_name = ?, last_name = ? WHERE id = ?";
+    private final static String SQL_QUERY_DELETE = "DELETE FROM writers WHERE id = ?";
+    private final static String SQL_QUERY_INSERT = "INSERT INTO writers (first_name, last_name) VALUES (?, ?)";
+    private final static String SQL_QUERY_SELECT_ALL = "SELECT * FROM writers ORDER BY id";
+    private final static String SQL_QUERY_SELECT_BY_ID = "SELECT * FROM writers WHERE id = ?";
 
     @Override
-    public Writer getById(Long id) throws SQLException {
-        List<Writer> writersList = getAll();
+    public Writer getById(Long id) {
+        Writer writer = null;
+        List<Post> postsList;
 
-        for (Writer writer : writersList) {
-            if (writer.getId().equals(id)) {
-                return writer;
+        try (PreparedStatement preparedStatement = ConnectionUtils.preparedStatement(SQL_QUERY_SELECT_BY_ID)) {
+            preparedStatement.setLong(1, id);
+            ResultSet resultSet = preparedStatement.executeQuery();
+
+            while (resultSet.next()) {
+                Long writerId = resultSet.getLong(1);
+                String firstName = resultSet.getString(2);
+                String lastName = resultSet.getString(3);
+
+                postsList = getAllPostsByWriter(id);
+
+                writer = new Writer(writerId, firstName, lastName, postsList);
             }
+
+            resultSet.close();
+        } catch (SQLException e) {
+            System.out.println("Error getting all instances");
+            e.printStackTrace();
         }
 
-        throw new SQLException("The line with the id does not exist");
+        return writer;
     }
 
     @Override
     public boolean delete(Long id) {
         int countRowDeleted = 0;
 
-        String SQL = "DELETE FROM writers WHERE id = ?";
-
-        try (PreparedStatement preparedStatement = connection.prepareStatement(SQL)) {
+        try (PreparedStatement preparedStatement = ConnectionUtils.preparedStatement(SQL_QUERY_DELETE)) {
             preparedStatement.setLong(1, id);
             countRowDeleted = preparedStatement.executeUpdate();
 
@@ -60,10 +67,7 @@ public class DBWriterRepositoryImpl implements WriterRepository {
 
         int countRowUpdated;
 
-        String SQLupdate = "UPDATE writers SET firstname = ?, lastname = ? WHERE id = ?";
-
-        try (PreparedStatement preparedStatement = connection.prepareStatement(SQLupdate))
-        {
+        try (PreparedStatement preparedStatement = ConnectionUtils.preparedStatement(SQL_QUERY_UPDATE)) {
             preparedStatement.setString(1, writer.getFirstName());
             preparedStatement.setString(2, writer.getLastName());
             preparedStatement.setLong(3, writer.getId());
@@ -88,11 +92,8 @@ public class DBWriterRepositoryImpl implements WriterRepository {
         List<Writer> writersList = new ArrayList<>();
         List<Post> postsList;
 
-        String SQL = "SELECT * FROM writers ORDER BY id";
-
-        try (Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(SQL))
-        {
+        try (Statement statement = ConnectionUtils.createStatement();
+             ResultSet resultSet = statement.executeQuery(SQL_QUERY_SELECT_ALL)) {
             while (resultSet.next()) {
                 Long id = resultSet.getLong(1);
                 String firstName = resultSet.getString(2);
@@ -115,10 +116,7 @@ public class DBWriterRepositoryImpl implements WriterRepository {
     public Writer save(Writer writer) {
         int countRowInserted;
 
-        String SQLinsert = "INSERT INTO writers (firstname, lastname) VALUES (?, ?)";
-
-        try (PreparedStatement preparedStatement = connection.prepareStatement(SQLinsert, Statement.RETURN_GENERATED_KEYS))
-        {
+        try (PreparedStatement preparedStatement = ConnectionUtils.preparedStatementWithGeneratedKeys(SQL_QUERY_INSERT)) {
             preparedStatement.setString(1, writer.getFirstName());
             preparedStatement.setString(2, writer.getLastName());
             countRowInserted = preparedStatement.executeUpdate();
@@ -127,11 +125,10 @@ public class DBWriterRepositoryImpl implements WriterRepository {
                 throw new SQLException("0 rows have been inserted");
             }
 
-            try(ResultSet generatedKeys = preparedStatement.getGeneratedKeys()){
+            try (ResultSet generatedKeys = preparedStatement.getGeneratedKeys()) {
                 if (generatedKeys.next()) {
                     writer.setId(generatedKeys.getLong(1));
-                }
-                else {
+                } else {
                     throw new SQLException("Creating label failed.");
                 }
             }
@@ -149,11 +146,10 @@ public class DBWriterRepositoryImpl implements WriterRepository {
 
         String SQL = "SELECT p.id, p.content, p.status " +
                 "FROM writers w JOIN posts p " +
-                "ON p.writerid = w.id " +
+                "ON p.writer_id = w.id " +
                 "WHERE w.id = ?";
 
-        try (PreparedStatement preparedStatement = connection.prepareStatement(SQL))
-        {
+        try (PreparedStatement preparedStatement = ConnectionUtils.preparedStatement(SQL)) {
             preparedStatement.setLong(1, id);
             ResultSet resultSet = preparedStatement.executeQuery();
 

@@ -1,6 +1,5 @@
 package example.com.crud;
 
-
 import example.com.crud.service.LabelService;
 import org.junit.*;
 import org.mockito.Mockito;
@@ -10,7 +9,6 @@ import example.com.crud.repository.LabelRepository;
 import example.com.crud.repository.impl.DBLabelRepositoryImpl;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.*;
@@ -19,22 +17,25 @@ import static org.mockito.Mockito.*;
 public class LabelServiceTest {
 
     private LabelRepository labelRepositoryMock;
-    LabelService labelService;
-    private Label label;
+    private LabelService labelService;
+
+    private Label getDefaultLabel() {
+        return new Label(1L, "Life");
+    }
 
     @Before
     public void setUp() {
         labelRepositoryMock = Mockito.mock(DBLabelRepositoryImpl.class);
         labelService = new LabelService(labelRepositoryMock);
-        label = new Label(1L, "Life");
     }
 
     @Test
     public void savedLabel_Should_Success() {
-        when(labelRepositoryMock.save(label)).thenReturn(label);
+        when(labelRepositoryMock.save(any(Label.class))).thenReturn(getDefaultLabel());
 
-        Label savedLabel = labelRepositoryMock.save(label);
-        assertNotNull(savedLabel.getNameLabel());
+        Label savedLabel = labelService.save(getDefaultLabel());
+
+        assertNotNull(savedLabel);
     }
 
     @Test(expected = SQLException.class)
@@ -42,30 +43,32 @@ public class LabelServiceTest {
 
         when(labelRepositoryMock.save(any(Label.class))).thenThrow(SQLException.class);
 
-        labelRepositoryMock.save(new Label());
+        labelService.save(getDefaultLabel());
 
     }
 
     @Test
     public void getById_Should_Success() throws SQLException {
-        when(labelRepositoryMock.getById(anyLong())).thenReturn(label);
-        Label getLabel = labelRepositoryMock.getById(3L);
+        when(labelRepositoryMock.getById(anyLong())).thenReturn(getDefaultLabel());
+        Label getLabel = labelService.getById(3L);
 
-        assertEquals(label.getNameLabel(), getLabel.getNameLabel());
+        assertNotNull(getLabel);
+
+        assertEquals(getLabel, getDefaultLabel());
     }
 
     @Test(expected = SQLException.class)
     public void getById_Should_Throw_Exception() throws SQLException {
         when(labelRepositoryMock.getById(anyLong())).thenThrow(SQLException.class);
-        labelRepositoryMock.getById(56L);
 
+        labelService.getById(5L);
     }
 
     @Test
     public void deleteById_Should_True() {
         when(labelRepositoryMock.delete(anyLong())).thenReturn(true);
 
-        boolean checkDeletedLabel = labelRepositoryMock.delete(2L);
+        boolean checkDeletedLabel = labelService.delete(2L);
 
         assertTrue(checkDeletedLabel);
     }
@@ -74,7 +77,7 @@ public class LabelServiceTest {
     public void deleteById_Should_False() {
         when(labelRepositoryMock.delete(anyLong())).thenReturn(false);
 
-        boolean checkDeletedLabel = labelRepositoryMock.delete(2L);
+        boolean checkDeletedLabel = labelService.delete(2L);
 
         assertFalse(checkDeletedLabel);
     }
@@ -83,18 +86,18 @@ public class LabelServiceTest {
     public void deleteById_Should_Throw_Exception() {
         when(labelRepositoryMock.delete(anyLong())).thenThrow(SQLException.class);
 
-        labelRepositoryMock.delete(5L);
+        labelService.delete(5L);
     }
 
     @Test
     public void updatedLabel_Should_Success() {
-        when(labelRepositoryMock.update(any(Label.class))).thenReturn(label);
+        when(labelRepositoryMock.update(any(Label.class))).thenReturn(getDefaultLabel());
 
-        Label updatedLabel = labelRepositoryMock.update(label);
+        Label updatedLabel = labelService.update(getDefaultLabel());
 
         assertNotNull(updatedLabel);
 
-        assertSame(label, updatedLabel);
+        assertEquals(updatedLabel, getDefaultLabel());
     }
 
     @Test(expected = SQLException.class)
@@ -102,7 +105,7 @@ public class LabelServiceTest {
 
         when(labelRepositoryMock.update(any(Label.class))).thenThrow(SQLException.class);
 
-        labelRepositoryMock.update(label);
+        labelService.update(getDefaultLabel());
     }
 
     @Test
@@ -117,7 +120,7 @@ public class LabelServiceTest {
 
         when(labelRepositoryMock.getAll()).thenReturn(labelsList);
 
-        List<Label> getAllLabels = labelRepositoryMock.getAll();
+        List<Label> getAllLabels = labelService.getAll();
 
         assertNotNull(getAllLabels);
 
@@ -134,6 +137,6 @@ public class LabelServiceTest {
 
         when(labelRepositoryMock.getAll()).thenThrow(SQLException.class);
 
-        labelRepositoryMock.getAll();
+        labelService.getAll();
     }
 }

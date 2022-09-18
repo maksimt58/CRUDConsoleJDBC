@@ -5,44 +5,68 @@ import example.com.crud.model.Post;
 import example.com.crud.model.PostStatus;
 import example.com.crud.model.Writer;
 import example.com.crud.repository.PostRepository;
-import example.com.crud.utils.DBConnection;
+import example.com.crud.utils.ConnectionUtils;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class DBPostRepositoryImpl implements PostRepository {
-    private DBConnection dbConnection = null;
-    private Connection connection = null;
-
-    public DBPostRepositoryImpl() {
-        try {
-            this.dbConnection = DBConnection.getInstance();
-            this.connection = dbConnection.getConnection();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
+    private final static String SQL_QUERY_UPDATE = "UPDATE posts SET content = ?, status = ?, writer_id = ? WHERE id = ?";
+    private final static String SQL_QUERY_DELETE = "DELETE FROM posts WHERE id = ?";
+    private final static String SQL_QUERY_INSERT = "INSERT INTO posts (content, writer_id, status) VALUES (?, ?, ?)";
+    private final static String SQL_QUERY_INSERT_POST_LABELS = "INSERT INTO post_labels (post_id, label_id) values (? , ?)";
+    private final static String SQL_QUERY_SELECT_BY_ID = "SELECT p.id, p.content, p.status, p.create_date, p.update_date, w.* " +
+                                                         "FROM posts p JOIN writers w ON p.writer_id = w.id WHERE p.id = ?";
+    private final static String SQL_QUERY_SELECT_ALL =  "SELECT p.id,p.content, p.status, p.create_date, p.update_date, w.* " +
+                                                        "FROM posts p JOIN writers w ON p.writer_id = w.id ORDER BY p.id";
 
     @Override
-    public Post getById(Long id) throws SQLException {
-        List<Post> postsList = getAll();
+    public Post getById(Long id) {
+        Post post = null;
+        Writer writer;
 
-        Post getPostById = postsList.stream().filter(post -> post.getId().equals(id)).findFirst().orElse(null);
+        try(PreparedStatement preparedStatement = ConnectionUtils.preparedStatement(SQL_QUERY_SELECT_BY_ID)) {
 
-        if (getPostById != null) {
-            return getPostById;
-        } else {
-            throw new SQLException("The line with the id does not exist");
+            preparedStatement.setLong(1, id);
+            ResultSet resultSet = preparedStatement.executeQuery();
+
+            while (resultSet.next()) {
+                Long postId = resultSet.getLong(1);
+                String postName = resultSet.getString(2);
+                String postStatus = resultSet.getString(3);
+                Timestamp createdDate = resultSet.getTimestamp(4);
+                Timestamp updatedDate = resultSet.getTimestamp(5);
+
+                Long writerId = resultSet.getLong(6);
+                String writerFirstName = resultSet.getString(7);
+                String writerLastName = resultSet.getString(8);
+
+                List<Label> labelsList = getLabelsByPost(postId);
+
+                writer = new Writer(writerId, writerFirstName, writerLastName);
+
+                post = new Post(postId, postName, PostStatus.valueOf(postStatus));
+                post.setCreated(createdDate);
+                post.setUpdated(updatedDate);
+                post.setLabels(labelsList);
+                post.setWriter(writer);
+            }
+
+            resultSet.close();
         }
+        catch (SQLException e) {
+            System.out.println("Error getting instance");
+            e.printStackTrace();
+        }
+
+        return post;
     }
 
     @Override
     public boolean delete(Long id) {
         int countRowDeleted = 0;
 
-        String SQL = "DELETE FROM posts WHERE id = ?";
-
-        try (PreparedStatement preparedStatement = connection.prepareStatement(SQL)) {
+        try (PreparedStatement preparedStatement = ConnectionUtils.preparedStatement(SQL_QUERY_DELETE)) {
             preparedStatement.setLong(1, id);
             countRowDeleted = preparedStatement.executeUpdate();
 
@@ -59,8 +83,7 @@ public class DBPostRepositoryImpl implements PostRepository {
         Post postUpdated = null;
         int countRowUpdated;
 
-        String SQLupdate = "UPDATE Posts SET content = ?, status = ?, writerId = ? WHERE id = ?";
-        try (PreparedStatement preparedStatement = connection.prepareStatement(SQLupdate))
+        try (PreparedStatement preparedStatement = ConnectionUtils.preparedStatement(SQL_QUERY_UPDATE))
         {
             preparedStatement.setString(1, post.getContent());
             preparedStatement.setString(2, post.getPostStatus().toString());
@@ -84,11 +107,9 @@ public class DBPostRepositoryImpl implements PostRepository {
         List<Post> postsList = new ArrayList<>();
         Post post;
         Writer writer;
-        String SQL = "SELECT p.id,p.content, p.status, p.createdate, p.updatedate, w.* " +
-                "FROM posts p JOIN writers w " +
-                "ON p.writerid = w.id ";
-        try (Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(SQL))
+
+        try (Statement statement = ConnectionUtils.createStatement();
+             ResultSet resultSet = statement.executeQuery(SQL_QUERY_SELECT_ALL))
         {
             while (resultSet.next()) {
                 Long postId = resultSet.getLong(1);
@@ -128,11 +149,8 @@ public class DBPostRepositoryImpl implements PostRepository {
         int countInsertedRows;
         int countInsertedRowPostLabels = 0;
 
-        String SQLinsert = "INSERT INTO Posts (content, WriterId, Status) VALUES (?, ?, ?)";
-        String SQLinsertPostLabel = "INSERT INTO postlabel (postid, labelid) values (? , ?)";
-
-        try (PreparedStatement preparedStatementInsertPost = connection.prepareStatement(SQLinsert, Statement.RETURN_GENERATED_KEYS);
-             PreparedStatement preparedStatementInsertPL = connection.prepareStatement(SQLinsertPostLabel))
+        try (PreparedStatement preparedStatementInsertPost = ConnectionUtils.preparedStatementWithGeneratedKeys(SQL_QUERY_INSERT);
+             PreparedStatement preparedStatementInsertPL = ConnectionUtils.preparedStatement(SQL_QUERY_INSERT_POST_LABELS))
         {
             preparedStatementInsertPost.setString(1, post.getContent());
             preparedStatementInsertPost.setLong(2, post.getWriterId());
@@ -172,13 +190,13 @@ public class DBPostRepositoryImpl implements PostRepository {
         List<Label> resultListLabel = new ArrayList<>();
 
         String SQL = "SELECT l.id, l.name " +
-                "FROM posts p JOIN postlabel pl " +
-                "ON p.id = pl.postid " +
+                "FROM posts p JOIN post_labels pl " +
+                "ON p.id = pl.post_id " +
                 "JOIN labels l " +
-                "ON pl.labelid = l.id " +
-                "where p.id = ?";
+                "ON pl.label_id = l.id " +
+                "WHERE p.id = ?";
 
-        try (PreparedStatement preparedStatement = connection.prepareStatement(SQL)) {
+        try (PreparedStatement preparedStatement = ConnectionUtils.preparedStatement(SQL)) {
 
             preparedStatement.setLong(1, id);
             ResultSet resultSet = preparedStatement.executeQuery();
@@ -188,6 +206,8 @@ public class DBPostRepositoryImpl implements PostRepository {
                 String labelName = resultSet.getString(2);
                 resultListLabel.add(new Label(labelId, labelName));
             }
+
+            resultSet.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }

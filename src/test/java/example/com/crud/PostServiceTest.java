@@ -21,52 +21,54 @@ import static org.mockito.Mockito.*;
 
 public class PostServiceTest {
     private PostRepository postRepositoryMock;
-    PostService postService;
-    private Post post;
+    private PostService postService;
+
+    private Post getDefaultPost() {
+        return new Post(1L, "Java11", PostStatus.ACTIVE, new ArrayList<>(), new Writer(2L, "Nata", "Tata"));
+    }
 
     @Before
     public void setUp() {
         postRepositoryMock = Mockito.mock(DBPostRepositoryImpl.class);
         postService = new PostService(postRepositoryMock);
-        post = new Post(1L, "Java11", PostStatus.ACTIVE, new ArrayList<>(), new Writer(2L, "Nata", "Tata"));
     }
 
     @Test
     public void savePost_Should_Success() {
 
-        when(postRepositoryMock.save(post)).thenReturn(post);
+        when(postRepositoryMock.save(any(Post.class))).thenReturn(getDefaultPost());
 
-        Post savedPost = postRepositoryMock.save(post);
+        Post savedPost = postService.save(getDefaultPost());
 
         assertNotNull(savedPost);
-        assertSame(savedPost, post);
-        assertEquals(savedPost.getContent(), post.getContent());
+        assertEquals(savedPost, getDefaultPost());
+        assertEquals("Java11", savedPost.getContent());
     }
 
     @Test(expected = SQLException.class)
     public void savePost_Should_Throw_Exception() {
         when(postRepositoryMock.save(any(Post.class))).thenThrow(SQLException.class);
 
-        postRepositoryMock.save(new Post());
+        postService.save(getDefaultPost());
     }
 
     @Test
     public void getById_Should_Success() throws SQLException {
 
-        when(postRepositoryMock.getById(anyLong())).thenReturn(post);
+        when(postRepositoryMock.getById(anyLong())).thenReturn(getDefaultPost());
 
-        Post getPost = postRepositoryMock.getById(2L);
+        Post getPost = postService.getById(2L);
 
         assertNotNull(getPost);
 
-        assertSame(getPost, post);
+        assertEquals(getPost, getDefaultPost());
     }
 
     @Test(expected = SQLException.class)
     public void getById_Should_Throw_Exception() throws SQLException {
         when(postRepositoryMock.getById(anyLong())).thenThrow(SQLException.class);
 
-        postRepositoryMock.getById(2L);
+        postService.getById(2L);
     }
 
     @Test
@@ -74,7 +76,7 @@ public class PostServiceTest {
 
         when(postRepositoryMock.delete(anyLong())).thenReturn(true);
 
-        boolean checkDeletedPost = postRepositoryMock.delete(3L);
+        boolean checkDeletedPost = postService.delete(3L);
 
         assertTrue(checkDeletedPost);
     }
@@ -84,7 +86,7 @@ public class PostServiceTest {
 
         when(postRepositoryMock.delete(anyLong())).thenReturn(false);
 
-        boolean checkDeletedPost = postRepositoryMock.delete(3L);
+        boolean checkDeletedPost = postService.delete(3L);
 
         assertFalse(checkDeletedPost);
     }
@@ -93,26 +95,26 @@ public class PostServiceTest {
     public void deleteById_Should_Throw_Exception() {
         when(postRepositoryMock.delete(anyLong())).thenThrow(SQLException.class);
 
-        postRepositoryMock.delete(2L);
+        postService.delete(2L);
     }
 
     @Test
     public void updatedPost_Should_Success() {
 
-        when(postRepositoryMock.update(any(Post.class))).thenReturn(post);
+        when(postRepositoryMock.update(any(Post.class))).thenReturn(getDefaultPost());
 
-        Post updatedPost = postRepositoryMock.update(new Post());
+        Post updatedPost = postService.update(new Post());
 
         assertNotNull(updatedPost);
 
-        assertSame(post, updatedPost);
+        assertEquals(updatedPost, getDefaultPost());
     }
 
     @Test(expected = SQLException.class)
     public void updatePost_Should_Throw_Exception() {
         when(postRepositoryMock.update(any(Post.class))).thenThrow(SQLException.class);
 
-        postRepositoryMock.update(post);
+        postService.update(getDefaultPost());
     }
 
     @Test
@@ -127,7 +129,7 @@ public class PostServiceTest {
 
         when(postRepositoryMock.getAll()).thenReturn(postsList);
 
-        List<Post> getAllPosts = postRepositoryMock.getAll();
+        List<Post> getAllPosts = postService.getAll();
 
         assertNotNull(getAllPosts);
 
@@ -141,6 +143,6 @@ public class PostServiceTest {
     public void getAllPosts_Should_Throw_Exception() {
         when(postRepositoryMock.getAll()).thenThrow(SQLException.class);
 
-        postRepositoryMock.getAll();
+        postService.getAll();
     }
 }

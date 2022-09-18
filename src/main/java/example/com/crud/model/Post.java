@@ -130,7 +130,7 @@ public class Post implements Model {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Post post = (Post) o;
-        return id.equals(post.id) && content.equals(post.content) && created.equals(post.created) && Objects.equals(updated, post.updated) && Objects.equals(labels, post.labels) && postStatus == post.postStatus;
+        return id.equals(post.id) && content.equals(post.content) && Objects.equals(labels, post.labels) && postStatus == post.postStatus;
     }
 
     @Override
